@@ -1,0 +1,26 @@
+.nav-tab-wrapper {
+    border-bottom: 1px solid #ccc;
+    margin: 0;
+    padding-top: 9px;
+    padding-bottom: 0;
+    line-height: inherit;
+}
+
+.nav-tab {
+    border: 1px solid #ccc;
+    border-bottom: none;
+    background: #e5e5e5;
+    color: #555;
+    font-size: 14px;
+    line-height: 24px;
+    font-weight: 600;
+    padding: 6px 10px;
+    text-decoration: none;
+    margin-right: 5px;
+}
+
+.nav-tab-active {
+    background: #f1f1f1;
+    color: #000;
+    border-bottom: 1px solid #f1f1f1;
+}
