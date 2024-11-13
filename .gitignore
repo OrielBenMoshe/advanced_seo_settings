@@ -1,0 +1,7 @@
+# קבצי מערכת
+.DS_Store
+Thumbs.db
+.htaccess
+*.log
+
+.vscode/
