@@ -1,5 +1,5 @@
 <?php
-
+use WP_Query;
 /**
  * Class Canonicals_Processor
  *
@@ -8,7 +8,7 @@
  */
 class Canonicals_Processor
 {
-    private $batch_size = 100;
+    private $batch_size = 200;
     private $logger;
 
     public function __construct()
@@ -17,54 +17,212 @@ class Canonicals_Processor
         $this->logger = $advanced_seo_logger;
     }
 
+    private function count_empty_canonicals($post_types, $taxonomies) {
+        $total_empty_canonicals = 0;  // שינוי שם המשתנה
+    
+        // ספירת פוסטים עם קנוניקל ריק
+        foreach ($post_types as $post_type => $enabled) {
+            if ($enabled == '1') {
+                $args = array(
+                    'post_type' => $post_type,
+                    'posts_per_page' => -1,
+                    'fields' => 'ids',
+                );
+                $posts = get_posts($args);
+                
+                foreach ($posts as $post_id) {
+                    $meta_key = $this->get_meta_key(false);
+                    $current_canonical = get_post_meta($post_id, $meta_key, true);
+                    if (empty($current_canonical)) {
+                        $total_empty_canonicals++;
+                    }
+                }
+            }
+        }
+    
+        // ספירת טקסונומיות עם קנוניקל ריק
+        foreach ($taxonomies as $taxonomy => $enabled) {
+            if ($enabled == '1') {
+                $terms = get_terms([
+                    'taxonomy' => $taxonomy,
+                    'hide_empty' => false,
+                    'fields' => 'ids'
+                ]);
+    
+                foreach ($terms as $term_id) {
+                    if (defined('WPSEO_VERSION') && class_exists('WPSEO_Taxonomy_Meta')) {
+                        // בדיקה ליוסט
+                        $current_canonical = WPSEO_Taxonomy_Meta::get_term_meta($term_id, $taxonomy, 'canonical');
+                    } else {
+                        // בדיקה רגילה
+                        $meta_key = $this->get_meta_key(true);
+                        $current_canonical = get_term_meta($term_id, $meta_key, true);
+                    }
+                    
+                    if (empty($current_canonical)) {
+                        $total_empty_canonicals++;
+                    }
+                }
+            }
+        }
+    
+        return $total_empty_canonicals;
+    }
+
+
+
+
+    
     /**
      * Auto-fill canonical URLs for selected post types and taxonomies.
      * This method is typically called via AJAX.
      */
-    public function auto_fill_canonicals()
-    {
+  
+
+     public function auto_fill_canonicals()
+     {
         try {
+            // Start session if not started
+            if (!session_id()) {
+                session_start();
+            }
+     
             check_ajax_referer('canonicals_nonce', 'security');
             if (!current_user_can('manage_options')) {
                 throw new Exception('Unauthorized user');
             }
-
+     
             $post_types = isset($_POST['post_types']) ? $_POST['post_types'] : [];
             $taxonomies = isset($_POST['taxonomies']) ? $_POST['taxonomies'] : [];
-
-            $this->logger->log("Received post types: " . print_r($post_types, true));
-            $this->logger->log("Received taxonomies: " . print_r($taxonomies, true));
-
-            if (empty($post_types) && empty($taxonomies)) {
-                throw new Exception('No content types or taxonomies selected.');
+     
+            // Initialize session variables
+            if (isset($_POST['count_only']) && $_POST['count_only'] === 'true') {
+                // Reset session variables
+                $_SESSION['processed_taxonomies'] = [];
+                $_SESSION['last_taxonomy_id'] = 0;
+                $_SESSION['processed_post_types'] = [];
+                $_SESSION['last_post_id'] = 0;
+                $_SESSION['total_processed'] = 0;
+     
+                $total_empty_canonicals = $this->count_empty_canonicals($post_types, $taxonomies);
+                $_SESSION['total_items'] = $total_empty_canonicals;
+                
+                wp_send_json_success([
+                    'total_empty_canonicals' => $total_empty_canonicals,
+                    'message' => sprintf('נמצאו %d פריטים ללא קנוניקל שיושפעו מהפעולה.', $total_empty_canonicals)
+                ]);
+                return;
             }
-
-            $total_updated = 0;
+     
+            // Get session variables
+            $processed_taxonomies = &$_SESSION['processed_taxonomies'];
+            $last_taxonomy_id = &$_SESSION['last_taxonomy_id'];
+            $processed_post_types = &$_SESSION['processed_post_types'];
+            $last_post_id = &$_SESSION['last_post_id'];
+            $total_processed = &$_SESSION['total_processed'];
+     
+            $batch_updated = 0;
             $is_complete = false;
-
-            $updated_taxonomies = $this->process_taxonomies($taxonomies);
-            $total_updated += $updated_taxonomies['count'];
-
-            if ($updated_taxonomies['count'] < $this->batch_size) {
-                $remaining = $this->batch_size - $updated_taxonomies['count'];
-                $updated_posts = $this->process_post_types($post_types, $remaining);
-                $total_updated += $updated_posts['count'];
-
-                if ($updated_posts['count'] < $remaining) {
-                    $is_complete = true;
+     
+            // Process taxonomies first
+            foreach ($taxonomies as $taxonomy => $enabled) {
+                if ($enabled != '1' || in_array($taxonomy, $processed_taxonomies)) {
+                    continue;
+                }
+     
+                $args = [
+                    'taxonomy' => $taxonomy,
+                    'hide_empty' => false,
+                    'fields' => 'ids',
+                    'number' => $this->batch_size,
+                    'offset' => $last_taxonomy_id,
+                    'orderby' => 'id',
+                    'order' => 'ASC'
+                ];
+     
+                $terms = get_terms($args);
+     
+                if (empty($terms)) {
+                    $processed_taxonomies[] = $taxonomy;
+                    $last_taxonomy_id = 0;
+                    continue;
+                }
+     
+                foreach ($terms as $term_id) {
+                    $canonical_url = get_term_link($term_id, $taxonomy);
+                    if (!is_wp_error($canonical_url)) {
+                        $batch_updated += $this->update_canonical_url($term_id, $canonical_url, true, $taxonomy);
+                    }
+                }
+     
+                $last_taxonomy_id = end($terms);
+                break;
+            }
+     
+            // Process post types after taxonomies
+            if (count($processed_taxonomies) === count(array_filter($taxonomies))) {
+                foreach ($post_types as $post_type => $enabled) {
+                    if ($enabled != '1' || in_array($post_type, $processed_post_types)) {
+                        continue;
+                    }
+     
+                    $args = [
+                        'post_type' => $post_type,
+                        'posts_per_page' => $this->batch_size,
+                        'offset' => $last_post_id,
+                        'fields' => 'ids',
+                        'orderby' => 'ID',
+                        'order' => 'ASC'
+                    ];
+     
+                    $query = new WP_Query($args);
+     
+                    if (empty($query->posts)) {
+                        $processed_post_types[] = $post_type;
+                        $last_post_id = 0;
+                        continue;
+                    }
+     
+                    foreach ($query->posts as $post_id) {
+                        $batch_updated += $this->update_canonical_url($post_id, get_permalink($post_id), false);
+                    }
+     
+                    $last_post_id = end($query->posts);
+                    break;
                 }
             }
-
+     
+            $total_processed += $batch_updated;
+            $is_complete = (
+                count($processed_taxonomies) === count(array_filter($taxonomies)) && 
+                count($processed_post_types) === count(array_filter($post_types))
+            );
+     
+            if ($is_complete) {
+                // Clear session variables
+                $_SESSION['processed_taxonomies'] = [];
+                $_SESSION['last_taxonomy_id'] = 0;
+                $_SESSION['processed_post_types'] = [];
+                $_SESSION['last_post_id'] = 0;
+                $_SESSION['total_processed'] = 0;
+                $_SESSION['total_items'] = 0;
+            }
+     
             wp_send_json_success([
-                'message' => sprintf('עודכן %d שדות קנוניים.', $total_updated),
-                'updated_count' => $total_updated,
+                'message' => sprintf('עודכנו %d שדות קנוניים מתוך %d.', $total_processed, $_SESSION['total_items']),
+                'updated_count' => $batch_updated,
+                'total_processed' => $total_processed,
+                'total_items' => $_SESSION['total_items'],
                 'is_complete' => $is_complete
             ]);
+     
         } catch (Exception $e) {
-            $this->logger->log("Error in auto_fill_canonicals: " . $e->getMessage());
+            $this->logger->log("Error: " . $e->getMessage());
             wp_send_json_error($e->getMessage());
         }
-    }
+     }
+
+
 
     /**
      * Process taxonomies for canonical URL updates.

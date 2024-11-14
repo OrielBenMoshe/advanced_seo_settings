@@ -1,0 +1,99 @@
+ jQuery(document).ready(function($) {
+                $('#auto_fill_canonicals, #delete_default_canonicals').click(function(e) {
+
+                    e.preventDefault();
+
+                    // שומר את הכפתור שנלחץ למשתנה
+                    var $button = $(this);
+                    // בודק אם זה כפתור המילוי האוטומטי על ידי בדיקת המזהה שלו
+                    var isAutoFill = $button.attr('id') === 'auto_fill_canonicals';
+                    // מקבל את כמות הקנוניקלים מהשרת
+                    // קודם היה פה רק משתנה גלובלי window.canonicalsCount שלא באמת הגיע מהשרת
+                    // עכשיו אנחנו שולחים בקשת AJAX סינכרונית לשרת
+                    var canonicalsCount = 0;
+                    $.ajax({
+                        url: ajaxurl, // נקודת הקצה של WordPress AJAX
+                        type: 'POST',
+                        async: false, // סינכרוני כדי לחכות לתשובה לפני המשך הקוד
+                        data: {
+                            action: 'get_canonicals_count', // הפעולה שצריך להוסיף בצד שרת
+                            security: '<?php echo wp_create_nonce("canonicals_nonce"); ?>' // אבטחה
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                canonicalsCount = response.data.count; // מעדכן את המשתנה עם המספר האמיתי
+                            }
+                        }
+                    });
+                    // קובע את הודעת האישור בהתאם לכפתור שנלחץ, כולל מספר הקנוניקלים:
+                    // עבור מילוי אוטומטי: "האם אתה בטוח שברצונך למלא X קנוניקלים באופן אוטומטי?"
+                    // עבור מחיקה: "האם אתה בטוח שברצונך למחוק X קנוניקלים?"
+                    var confirmMessage = isAutoFill ? 
+                        'האם אתה בטוח שברצונך למלא ' + canonicalsCount + ' קנוניקלים באופן אוטומטי?' : 
+                        'האם אתה בטוח שברצונך למחוק ' + canonicalsCount + ' קנוניקלים?';
+
+                if (confirm(confirmMessage)) { // שורה חדשה
+
+
+                    var $result = $button.next('span');
+                    var action = $button.attr('id') === 'auto_fill_canonicals' ? 'auto_fill_canonicals' : 'delete_default_canonicals';
+                    
+                    $button.prop('disabled', true);
+                    $result.text('מבצע פעולה...');
+                    
+                    var selectedPostTypes = {};
+                    $('input[name^="advanced_seo_canonicals[post_types]"]:checked').each(function() {
+                        var name = $(this).attr('name');
+                        var matches = name.match(/\[post_types\]\[(.*?)\]/);
+                        if (matches) {
+                            selectedPostTypes[matches[1]] = '1';
+                        }
+                    });
+        
+                    var selectedTaxonomies = {};
+                    
+                    $('input[name^="advanced_seo_canonicals[taxonomies]"]:checked').each(function() {
+                        var name = $(this).attr('name');
+                        var matches = name.match(/\[taxonomies\]\[(.*?)\]/);
+                        if (matches) {
+                            selectedTaxonomies[matches[1]] = '1';
+                        }
+                    });
+                    
+                    console.log('Selected post types:', selectedPostTypes);
+                    console.log('Selected taxonomies:', selectedTaxonomies);
+
+                    function processBatch() {
+                        var data = {
+                            'action': action,
+                            'security': '<?php echo wp_create_nonce("canonicals_nonce"); ?>',
+                            'post_types': selectedPostTypes,
+                            'taxonomies': selectedTaxonomies
+                        };
+                        
+                        $.post(ajaxurl, data, function(response) {
+                            console.log('Server response:', response);
+                            if (response.success) {
+                                $result.text(response.data.message);
+                                if (!response.data.is_complete) {
+                                    setTimeout(processBatch, 1000); // Wait 1 second before next batch
+                                } else {
+                                    $button.prop('disabled', false);
+                                    $result.text(response.data.message + ' הפעולה הושלמה.');
+                                }
+                            } else {
+                                $result.text('אירעה שגיאה: ' + (response.data || 'Unknown error'));
+                                $button.prop('disabled', false);
+                            }
+                        }).fail(function(jqXHR, textStatus, errorThrown) {
+                            console.error('AJAX error:', textStatus, errorThrown);
+                            $result.text('אירעה שגיאה בתקשורת עם השרת: ' + textStatus);
+                            $button.prop('disabled', false);
+                        });
+                    }
+                    
+                    processBatch(); 
+                }
+                });
+           
+            }); 

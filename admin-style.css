@@ -24,3 +24,59 @@
     color: #000;
     border-bottom: 1px solid #f1f1f1;
 }
+
+
+
+/* בר התקדמות */
+
+.canonical-action-container {
+    margin-bottom: 20px;
+}
+
+.progress-container {
+    max-width: 400px;
+}
+
+.progress-bar {
+    height: 20px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5px;
+    border: 1px solid #ccc;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #2271b1;
+    width: 0;
+    transition: width 0.3s ease-in-out;
+}
+
+.progress-text {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.progress-count {
+    color: #666;
+    font-size: 0.9em;
+}
+
+/* אנימציית טעינה */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #2271b1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+    vertical-align: middle;
+}
