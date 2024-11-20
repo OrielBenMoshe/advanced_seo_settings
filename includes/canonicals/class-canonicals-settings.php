@@ -34,6 +34,13 @@ class Canonicals_Settings
         <script type="text/javascript">
             jQuery(document).ready(function($) {
                 $('#auto_fill_canonicals, #delete_default_canonicals').click(function() {
+                    var action = $(this).attr('id') === 'auto_fill_canonicals' ? 'למלא' : 'למחוק';
+                    if (!confirm(`האם אתה בטוח שברצונך ${action} קנוניקלס?`)) {
+                        return;
+                    }
+
+                    console.log('החלה הפעולה');
+                    
                     var $button = $(this);
                     var $result = $button.next('span');
                     var action = $button.attr('id') === 'auto_fill_canonicals' ? 'auto_fill_canonicals' : 'delete_default_canonicals';
