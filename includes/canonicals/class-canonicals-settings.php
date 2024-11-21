@@ -34,11 +34,7 @@ class Canonicals_Settings
         <script type="text/javascript">
             jQuery(document).ready(function($) {
                 $('#auto_fill_canonicals, #delete_default_canonicals').click(function() {
-                    var action = $(this).attr('id') === 'auto_fill_canonicals' ? 'למלא' : 'למחוק';
-                    if (!confirm(`האם אתה בטוח שברצונך ${action} קנוניקלס?`)) {
-                        return;
-                    }
-
+                    var action_name = $(this).attr('id') === 'auto_fill_canonicals' ? 'למלא' : 'למחוק';
                     console.log('החלה הפעולה');
                     
                     var $button = $(this);
@@ -68,6 +64,42 @@ class Canonicals_Settings
                     
                     console.log('Selected post types:', selectedPostTypes);
                     console.log('Selected taxonomies:', selectedTaxonomies);
+                    
+                    
+                        // שליחת קריאה לשרת
+    jQuery.ajax({
+        url: ajaxurl,
+        method: 'POST',
+        dataType: 'json',
+        data: {
+            action: 'get_update_count',
+            // security: canonicals_nonce,
+            post_types: selectedPostTypes,
+            taxonomies: selectedTaxonomies,
+        },
+        success: function (response) {
+            if (response.success) {
+                const { posts_count, taxonomies_count } = response.data;
+
+                // הודעת Confirm
+                const message = `מספר הפוסטים שיתעדכנו: ${posts_count}\nמספר הטקסונומיות שיתעדכנו: ${taxonomies_count}\nהאם להמשיך?`;
+                if (!confirm(message)) {
+                    return;
+                }
+            } else {
+                alert('שגיאה בקבלת הנתונים: ' + response.data);
+            }
+        },
+        error: function (xhr, status, error) {
+            alert('שגיאה בתקשורת עם השרת: ' + error);
+        },
+    });
+
+
+                          
+                    // if (!confirm(`האם אתה בטוח שברצונך ${action_name} קנוניקלס?`)) {
+                    //     return;
+                    // }
 
                     function processBatch() {
                         var data = {
@@ -101,7 +133,9 @@ class Canonicals_Settings
                     processBatch();
                 });
             });
-        </script>
+
+
+                </script>
         <?php
     }
 

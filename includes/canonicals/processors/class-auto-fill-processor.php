@@ -45,6 +45,7 @@ class Auto_Fill_Processor {
             $total_updated = 0;
             $is_complete = false;
 
+
             // טיפול בטקסונומיות
             $updated_taxonomies = $this->process_taxonomies($taxonomies);
             $total_updated += $updated_taxonomies['count'];
@@ -148,4 +149,54 @@ class Auto_Fill_Processor {
 
         return 0;
     }
+}
+
+
+
+add_action('wp_ajax_get_update_count', 'get_update_count');
+function get_update_count() {
+    // check_ajax_referer('canonicals_nonce', 'security');
+
+    // if (!current_user_can('manage_options')) {
+    //     wp_send_json_error('משתמש לא מורשה');
+    // }
+
+    $post_types = isset($_POST['post_types']) ? $_POST['post_types'] : [];
+    $taxonomies = isset($_POST['taxonomies']) ? $_POST['taxonomies'] : [];
+
+    $posts_count = 0;
+    $taxonomies_count = 0;
+
+    // חישוב כמות הפוסטים
+    foreach ($post_types as $post_type => $enabled) {
+        if ($enabled != '1') {
+            continue;
+        }
+
+        $query = new WP_Query([
+            'post_type' => $post_type,
+            'fields' => 'ids',
+            'posts_per_page' => -1,
+        ]);
+        $posts_count += $query->found_posts;
+    }
+
+    // חישוב כמות הטקסונומיות
+    foreach ($taxonomies as $taxonomy => $enabled) {
+        if ($enabled != '1') {
+            continue;
+        }
+
+        $terms = get_terms([
+            'taxonomy' => $taxonomy,
+            'hide_empty' => false,
+            'fields' => 'ids',
+        ]);
+        $taxonomies_count += count($terms);
+    }
+
+    wp_send_json_success([
+        'posts_count' => $posts_count,
+        'taxonomies_count' => $taxonomies_count,
+    ]);
 }
