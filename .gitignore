@@ -3,5 +3,6 @@
 Thumbs.db
 .htaccess
 *.log
+debug.log
 
 .vscode/
