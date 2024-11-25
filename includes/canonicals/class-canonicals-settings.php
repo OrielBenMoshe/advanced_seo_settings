@@ -31,16 +31,63 @@ class Canonicals_Settings
             </form>
         </div>
         
+        <div id="canonicals-modal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);">
+            <div class="modal-content" style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 5px;">
+                <h3 id="modal-title"></h3>
+                <p id="modal-message"></p>
+                <div style="text-align: left;">
+                    <button type="button" id="modal-confirm" class="button button-primary">אישור</button>
+                    <button type="button" id="modal-cancel" class="button button-secondary">ביטול</button>
+                </div>
+            </div>
+        </div>
+        
         <script type="text/javascript">
             jQuery(document).ready(function($) {
-                $('#auto_fill_canonicals, #delete_default_canonicals').click(function() {
-                    var $button = $(this);
+                var currentAction = '';
+                var $modal = $('#canonicals-modal');
+                
+                function showModal(title, message, action) {
+                    $('#modal-title').text(title);
+                    $('#modal-message').text(message);
+                    currentAction = action;
+                    $modal.show();
+                }
+
+                $('#auto_fill_canonicals').click(function() {
+                    showModal(
+                        'אישור מילוי קנוניקלים',
+                        'האם אתה בטוח שברצונך למלא באופן אוטומטי את שדות הקנוניקל הריקים?',
+                        'auto_fill_canonicals'
+                    );
+                });
+
+                $('#delete_default_canonicals').click(function() {
+                    showModal(
+                        'אישור מחיקת קנוניקלים',
+                        'האם אתה בטוח שברצונך למחוק את כל שדות הקנוניקל שזהים ל-URL המקורי?',
+                        'delete_default_canonicals'
+                    );
+                });
+
+                $('#modal-cancel').click(function() {
+                    $modal.hide();
+                });
+
+                // פונקציה חדשה לניקוי כל ההודעות
+                function clearAllResults() {
+                    $('#auto_fill_result, #delete_default_result').text('');
+                }
+
+                $('#modal-confirm').click(function() {
+                    clearAllResults(); // ניקוי הודעות קודמות
+                    $modal.hide();
+                    var $button = $('#' + currentAction);
                     var $result = $button.next('span');
-                    var action = $button.attr('id') === 'auto_fill_canonicals' ? 'auto_fill_canonicals' : 'delete_default_canonicals';
                     
                     $button.prop('disabled', true);
                     $result.text('מבצע פעולה...');
-                    
+
                     var selectedPostTypes = {};
                     $('input[name^="advanced_seo_canonicals[post_types]"]:checked').each(function() {
                         var name = $(this).attr('name');
@@ -49,7 +96,7 @@ class Canonicals_Settings
                             selectedPostTypes[matches[1]] = '1';
                         }
                     });
-        
+
                     var selectedTaxonomies = {};
                     $('input[name^="advanced_seo_canonicals[taxonomies]"]:checked').each(function() {
                         var name = $(this).attr('name');
@@ -58,13 +105,10 @@ class Canonicals_Settings
                             selectedTaxonomies[matches[1]] = '1';
                         }
                     });
-                    
-                    console.log('Selected post types:', selectedPostTypes);
-                    console.log('Selected taxonomies:', selectedTaxonomies);
 
                     function processBatch() {
                         var data = {
-                            'action': action,
+                            'action': currentAction,
                             'security': '<?php echo wp_create_nonce("canonicals_nonce"); ?>',
                             'post_types': selectedPostTypes,
                             'taxonomies': selectedTaxonomies
@@ -73,18 +117,21 @@ class Canonicals_Settings
                         $.post(ajaxurl, data, function(response) {
                             console.log('Server response:', response);
                             if (response.success) {
+                                clearAllResults(); // ניקוי לפני הצגת ההודעה החדשה
                                 $result.text(response.data.message);
                                 if (!response.data.is_complete) {
-                                    setTimeout(processBatch, 1000); // Wait 1 second before next batch
+                                    setTimeout(processBatch, 1000);
                                 } else {
                                     $button.prop('disabled', false);
                                     $result.text(response.data.message + ' הפעולה הושלמה.');
                                 }
                             } else {
+                                clearAllResults(); // ניקוי לפני הצגת הודעת השגיאה
                                 $result.text('אירעה שגיאה: ' + (response.data || 'Unknown error'));
                                 $button.prop('disabled', false);
                             }
                         }).fail(function(jqXHR, textStatus, errorThrown) {
+                            clearAllResults(); // ניקוי לפני הצגת הודעת השגיאה
                             console.error('AJAX error:', textStatus, errorThrown);
                             $result.text('אירעה שגיאה בתקשורת עם השרת: ' + textStatus);
                             $button.prop('disabled', false);

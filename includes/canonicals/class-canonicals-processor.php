@@ -36,7 +36,7 @@ class Canonicals_Processor
             $this->logger->log("Received taxonomies: " . print_r($taxonomies, true));
 
             if (empty($post_types) && empty($taxonomies)) {
-                throw new Exception('No content types or taxonomies selected.');
+                throw new Exception('לא נבחרו סוגי תוכן או טקסונומיות.');
             }
 
             $total_updated = 0;
@@ -147,8 +147,8 @@ class Canonicals_Processor
         $this->logger->log("Received taxonomies for deletion: " . print_r($taxonomies, true));
 
         if (empty($post_types) && empty($taxonomies)) {
-            $this->logger->log("No content types or taxonomies selected.");
-            wp_send_json_error('No content types or taxonomies selected.');
+            $this->logger->log("לא נבחרו סוגי תוכן או טקסונומיות.");
+            wp_send_json_error('לא נבחרו סוגי תוכן או טקסונומיות.');
         }
 
         $total_deleted = 0;

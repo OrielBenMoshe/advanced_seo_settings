@@ -11,9 +11,6 @@ class Canonicals_Admin {
         // Get the path to the includes/canonicals directory
         $this->plugin_path = plugin_dir_path(__FILE__);
         $this->plugin_url = plugin_dir_url(__FILE__);
-        
-        $this->logger->log("Plugin path: " . $this->plugin_path);
-        $this->logger->log("Plugin URL: " . $this->plugin_url);
     }
 
     public function init() {
