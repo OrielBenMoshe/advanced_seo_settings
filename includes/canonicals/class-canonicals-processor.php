@@ -36,7 +36,7 @@ class Canonicals_Processor
             $this->logger->log("Received taxonomies: " . print_r($taxonomies, true));
 
             if (empty($post_types) && empty($taxonomies)) {
-                throw new Exception('לא נבחרו סוגי תוכן או טקסונומיות.');
+                throw new Exception('No content types or taxonomies selected.');
             }
 
             $total_updated = 0;
@@ -56,7 +56,7 @@ class Canonicals_Processor
             }
 
             wp_send_json_success([
-                'message' => sprintf('עודכן %d שדות קנוניים.', $total_updated),
+                'message' => sprintf('עודכנו %d שדות קנוניים.', $total_updated),
                 'updated_count' => $total_updated,
                 'is_complete' => $is_complete
             ]);
@@ -147,8 +147,8 @@ class Canonicals_Processor
         $this->logger->log("Received taxonomies for deletion: " . print_r($taxonomies, true));
 
         if (empty($post_types) && empty($taxonomies)) {
-            $this->logger->log("לא נבחרו סוגי תוכן או טקסונומיות.");
-            wp_send_json_error('לא נבחרו סוגי תוכן או טקסונומיות.');
+            $this->logger->log("No content types or taxonomies selected.");
+            wp_send_json_error('No content types or taxonomies selected.');
         }
 
         $total_deleted = 0;
@@ -177,7 +177,7 @@ class Canonicals_Processor
         $this->logger->log("Total deleted: $total_deleted, Total checked: $total_checked, Is complete: " . ($is_complete ? "Yes" : "No"));
 
         wp_send_json_success([
-            'message' => sprintf('נמחקו %d שדות קנוניים המוגדרים כברירת מחדל. %d שדות כבר היו ריקים או שלא היה צורך במחיקה.', $total_deleted, $total_checked - $total_deleted),
+            'message' => sprintf('נמחקו %d שדות קנוניים שהיו זהים לכתובת URL המקורית.', $total_deleted),
             'deleted_count' => $total_deleted,
             'checked_count' => $total_checked,
             'is_complete' => $is_complete
